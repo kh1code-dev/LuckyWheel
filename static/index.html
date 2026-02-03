@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Vòng Quay May Mắn</title>
+    <style>
+        /* --- 1. TRANG TRÍ NỀN & BỐ CỤC --- */
+        body { 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            margin: 0; padding: 0; 
+            height: 100vh; overflow: hidden; /* Chặn cuộn trang */
+            /* Thay url('bg.jpg') bằng ảnh của bạn. Nếu chưa có ảnh thì dùng màu gradient tạm */
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            background-image: url('/web/bg.jpg'); 
+            background-size: cover; background-position: center;
+        }
+
+        /* Lớp phủ mờ lên nền để chữ dễ đọc hơn */
+        .overlay-bg {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.4); /* Màu đen mờ 40% */
+            z-index: 0;
+        }
+
+        .container { 
+            position: relative; z-index: 1;
+            background: rgba(255, 255, 255, 0.95); /* Nền trắng mờ */
+            width: 90%; max-width: 450px; 
+            margin: 80px auto 0; /* Cách top 80px */
+            padding: 30px; border-radius: 20px; 
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            text-align: center;
+            transition: all 0.3s ease;
+        }
+
+        /* --- 2. CÁC NÚT & INPUT --- */
+        input { 
+            padding: 15px; width: 85%; border: 2px solid #ddd; 
+            border-radius: 10px; margin-bottom: 15px; font-size: 16px; outline: none;
+        }
+        input:focus { border-color: #ff5722; }
+
+        button.primary-btn { 
+            padding: 15px 40px; background: linear-gradient(to right, #ff5722, #ff9800); 
+            color: white; border: none; border-radius: 30px; 
+            font-size: 18px; cursor: pointer; font-weight: bold; width: 100%;
+            box-shadow: 0 5px 15px rgba(255, 87, 34, 0.3);
+            transition: transform 0.2s;
+        }
+        button.primary-btn:active { transform: scale(0.98); }
+        button.primary-btn:disabled { background: #ccc; cursor: not-allowed; box-shadow: none;}
+
+        .hidden { display: none !important; }
+
+        /* --- 3. NÚT LỊCH SỬ (Góc trên phải) --- */
+        .top-right-btn {
+            position: absolute; top: 20px; right: 20px; z-index: 10;
+            background: rgba(255,255,255,0.2); border: 1px solid white;
+            color: white; padding: 8px 15px; border-radius: 20px;
+            cursor: pointer; backdrop-filter: blur(5px); font-size: 14px;
+        }
+        .top-right-btn:hover { background: rgba(255,255,255,0.4); }
+
+        /* --- 4. MODAL (Cửa sổ bật lên) --- */
+        .modal {
+            display: none; position: fixed; z-index: 100; left: 0; top: 0;
+            width: 100%; height: 100%; overflow: auto;
+            background-color: rgba(0,0,0,0.8);
+            animation: fadeIn 0.3s;
+        }
+        .modal-content {
+            background-color: #fefefe; margin: 15% auto; padding: 30px;
+            border-radius: 15px; width: 80%; max-width: 400px;
+            text-align: center; position: relative;
+        }
+        .close-modal {
+            position: absolute; top: 10px; right: 20px;
+            color: #aaa; font-size: 28px; font-weight: bold; cursor: pointer;
+        }
+        
+        /* Modal Chúc Mừng */
+        .win-title { color: #d9534f; font-size: 24px; margin-bottom: 10px; }
+        .win-prize { font-size: 32px; color: #28a745; font-weight: bold; margin: 20px 0; }
+
+        /* Bảng lịch sử trong Modal */
+        .history-table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 13px; }
+        .history-table th, .history-table td { padding: 8px; border-bottom: 1px solid #ddd; text-align: left; }
+        .history-table th { background-color: #f2f2f2; }
+
+        /* --- 5. DÒNG CHẠY CHỮ (Marquee) --- */
+        #history-marquee { 
+            position: fixed; bottom: 0; left: 0; width: 100%; z-index: 10;
+            background: rgba(0, 0, 0, 0.8); color: #fff; 
+            padding: 8px 0; font-size: 14px; white-space: nowrap; overflow: hidden;
+        }
+
+        @keyframes fadeIn { from {opacity: 0} to {opacity: 1} }
+    </style>
+</head>
+<body>
+
+    <div class="overlay-bg"></div>
+
+    <button class="top-right-btn" onclick="openHistoryModal()">📜 Lịch sử quay</button>
+
+    <div class="container">
+        <div id="step-1">
+            <h2 style="color: #333;">👋 Chào mừng bạn!</h2>
+            <p style="color: #666;">Nhập tên để bắt đầu</p>
+            <input type="text" id="inputName" placeholder="Tên của bạn (VD: Linh)">
+            <button class="primary-btn" onclick="registerName()">Tiếp Tục</button>
+        </div>
+
+        <div id="step-2" class="hidden">
+            <h2 style="color: #333;">🔒 Xác thực</h2>
+            <p style="color: #666;">Nhập mã code nhân viên cung cấp</p>
+            <input type="text" id="inputCode" placeholder="Mã code (VD: SPIN-X9J2)" style="text-transform: uppercase; text-align: center; letter-spacing: 2px;">
+            <button class="primary-btn" onclick="validateCode()">Vào Quay</button>
+            <p style="margin-top:15px; font-size:12px; color:#999; cursor:pointer" onclick="resetAll()">← Quay lại nhập tên</p>
+        </div>
+
+        <div id="step-3" class="hidden">
+            <h2 style="color: #ff5722;">🎡 Vòng Quay May Mắn</h2>
+            <div style="position: relative; margin: 20px auto; width: 300px; height: 300px;">
+                <div style="position: absolute; top: -10px; left: 50%; transform: translateX(-50%); width: 0; height: 0; border-left: 15px solid transparent; border-right: 15px solid transparent; border-top: 30px solid #d9534f; z-index: 10;"></div>
+                <canvas id="wheelCanvas" width="300" height="300"></canvas>
+            </div>
+            <button class="primary-btn btn-spin" onclick="spinNow()">QUAY NGAY</button>
+        </div>
+    </div>
+
+    <div id="history-marquee">
+        <marquee id="marquee-content" scrollamount="5">Đang tải dữ liệu trúng thưởng...</marquee>
+    </div>
+
+    <div id="winModal" class="modal">
+        <div class="modal-content">
+            <div class="win-title">🎉 CHÚC MỪNG BẠN! 🎉</div>
+            <p>Bạn đã trúng phần quà:</p>
+            <div class="win-prize" id="prizeDisplay">...</div>
+            <button class="primary-btn" onclick="resetAll()">🏠 Quay về trang chủ</button>
+        </div>
+    </div>
+
+    <div id="historyModal" class="modal">
+        <div class="modal-content" style="max-width: 500px;">
+            <span class="close-modal" onclick="closeHistoryModal()">&times;</span>
+            <h3>📜 Danh Sách Trúng Thưởng</h3>
+            <div style="max-height: 300px; overflow-y: auto;">
+                <table class="history-table">
+                    <thead>
+    <tr>
+        <th>Thời gian</th> <th>Tên</th>
+        <th>Phần thưởng</th>
+    </tr>
+</thead>
+                    <tbody id="historyTableBody"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_URL = "http://localhost:8080/api";
+        // Màu sắc vòng quay
+        const prizes = [
+            { text: "Voucher 5%", color: "#FFDDC1" },
+            { text: "Voucher 10%", color: "#FFABAB" },
+            { text: "Free Drink", color: "#D5AAFF" },
+            { text: "Voucher 50%", color: "#FFC3A0" }
+        ];
+
+        // --- CƠ CHẾ LƯU TRẠNG THÁI (SessionStorage) ---
+        // Khi tải trang, kiểm tra xem có đang dở dang không
+        window.onload = function() {
+            loadGlobalHistory();
+            const savedState = sessionStorage.getItem('luckyState');
+            if (savedState) {
+                const state = JSON.parse(savedState);
+                if (state.step === 3 && state.code) {
+                    // Nếu trước đó đang ở bước 3, khôi phục lại ngay
+                    document.getElementById('inputName').value = state.name;
+                    document.getElementById('inputCode').value = state.code;
+                    goToStep(3);
+                    drawWheel();
+                    console.log("Đã khôi phục phiên làm việc cũ!");
+                }
+            }
+        };
+
+        // --- CÁC HÀM ĐIỀU HƯỚNG ---
+        function goToStep(step) {
+            document.getElementById('step-1').classList.add('hidden');
+            document.getElementById('step-2').classList.add('hidden');
+            document.getElementById('step-3').classList.add('hidden');
+            document.getElementById(`step-${step}`).classList.remove('hidden');
+        }
+
+        function resetAll() {
+            // 1. Xóa bộ nhớ phiên
+            sessionStorage.removeItem('luckyState');
+
+            // 2. Reset các ô nhập liệu
+            document.getElementById('inputName').value = "";
+            document.getElementById('inputCode').value = "";
+            
+            // 3. Ẩn modal chúc mừng
+            document.getElementById('winModal').style.display = "none";
+
+            // 4. QUAN TRỌNG: Reset lại nút Quay về trạng thái ban đầu
+            const btn = document.querySelector('.btn-spin');
+            btn.disabled = false;       // Mở khóa nút
+            btn.innerText = "QUAY NGAY"; // Đổi lại chữ
+            
+            // 5. Về bước 1
+            goToStep(1);
+        }
+
+        // --- LOGIC BƯỚC 1: ĐĂNG KÝ ---
+        async function registerName() {
+            const name = document.getElementById('inputName').value.trim();
+            if(!name) return alert("Vui lòng nhập tên!");
+
+            const res = await fetch(API_URL + "/register", {
+                method: 'POST', body: JSON.stringify({name: name})
+            });
+            
+            if(res.ok) {
+                goToStep(2);
+            } else {
+                alert("Lỗi kết nối hoặc tên không hợp lệ!");
+            }
+        }
+
+        // --- LOGIC BƯỚC 2: CHECK CODE ---
+        async function validateCode() {
+            const code = document.getElementById('inputCode').value.trim();
+            const name = document.getElementById('inputName').value.trim();
+            if(!code) return alert("Vui lòng nhập mã!");
+
+            try {
+                const res = await fetch(API_URL + "/validate-code", {
+                    method: 'POST', body: JSON.stringify({code: code})
+                });
+                const data = await res.json();
+
+                if(data.valid) {
+                    // LƯU TRẠNG THÁI VÀO TRÌNH DUYỆT
+                    // Để nếu F5 thì vẫn còn nhớ mã này
+                    sessionStorage.setItem('luckyState', JSON.stringify({
+                        step: 3, code: code, name: name
+                    }));
+
+                    goToStep(3);
+                    drawWheel();
+                } else {
+                    alert(data.message);
+                }
+            } catch(e) { alert("Lỗi kết nối!"); }
+        }
+
+        // --- LOGIC BƯỚC 3: QUAY ---
+        function drawWheel(angle = 0) {
+            const canvas = document.getElementById('wheelCanvas');
+            const ctx = canvas.getContext('2d');
+            const cw = canvas.width, ch = canvas.height;
+            const arc = Math.PI * 2 / prizes.length;
+            
+            ctx.clearRect(0,0,cw,ch);
+            prizes.forEach((p, i) => {
+                const a = angle + i * arc;
+                ctx.beginPath(); ctx.fillStyle = p.color;
+                ctx.arc(cw/2,ch/2,cw/2 - 10,a,a+arc); ctx.lineTo(cw/2,ch/2); ctx.fill(); 
+                ctx.lineWidth = 2; ctx.strokeStyle = "#fff"; ctx.stroke();
+                
+                ctx.fillStyle = "#333"; ctx.font="bold 14px Arial"; 
+                ctx.save(); 
+                ctx.translate(cw/2 + Math.cos(a+arc/2)*(cw/3), ch/2 + Math.sin(a+arc/2)*(cw/3));
+                ctx.rotate(a+arc/2+Math.PI/2); 
+                ctx.fillText(p.text, -ctx.measureText(p.text).width/2, 0); 
+                ctx.restore();
+            });
+        }
+
+        async function spinNow() {
+            const code = sessionStorage.getItem('luckyState') ? JSON.parse(sessionStorage.getItem('luckyState')).code : document.getElementById('inputCode').value;
+            const btn = document.querySelector('.btn-spin');
+            btn.disabled = true; btn.innerText = "ĐANG QUAY...";
+
+            try {
+                const res = await fetch(API_URL + "/spin", {
+                    method: 'POST', body: JSON.stringify({code: code})
+                });
+                const data = await res.json();
+                
+                if(data.error) {
+                    alert(data.error);
+                    btn.disabled = false; btn.innerText = "QUAY NGAY";
+                    return;
+                }
+
+                // Animation
+                let currentAngle = 0;
+                const prizeIndex = data.id - 1; 
+                const arc = Math.PI * 2 / prizes.length;
+                const stopAngle = (Math.PI * 2 * 5) + (2 * Math.PI) - (prizeIndex * arc) - (arc/2);
+
+                const duration = 4000;
+                const start = performance.now();
+
+                function animate(time) {
+                    const p = (time - start) / duration;
+                    if (p < 1) {
+                        const ease = 1 - Math.pow(1 - p, 3);
+                        drawWheel(ease * stopAngle);
+                        requestAnimationFrame(animate);
+                    } else {
+                        drawWheel(stopAngle);
+                        // HIỆN MODAL CHÚC MỪNG
+                        showWinModal(data.name);
+                        // Xóa session để không quay lại được nữa
+                        sessionStorage.removeItem('luckyState');
+                        loadGlobalHistory(); // Tải lại lịch sử mới
+                    }
+                }
+                requestAnimationFrame(animate);
+
+            } catch(e) { 
+                alert("Lỗi server!"); btn.disabled = false; 
+            }
+        }
+
+        function showWinModal(prizeName) {
+            document.getElementById('prizeDisplay').innerText = prizeName;
+            document.getElementById('winModal').style.display = "block";
+        }
+
+        // --- QUẢN LÝ MODAL LỊCH SỬ ---
+        function openHistoryModal() {
+            document.getElementById('historyModal').style.display = "block";
+            loadGlobalHistory(true); // Load dạng bảng
+        }
+        function closeHistoryModal() {
+            document.getElementById('historyModal').style.display = "none";
+        }
+
+        // --- TRONG FILE static/index.html ---
+async function loadGlobalHistory(isTable = false) {
+    try {
+        // Thêm ?t= để chống cache
+        const res = await fetch(API_URL + "/history?t=" + new Date().getTime());
+        const data = await res.json();
+        
+        const marquee = document.getElementById('marquee-content');
+        
+        // Nếu không có dữ liệu
+        if (!data || data.length === 0) {
+            marquee.innerText = "Chưa có lượt trúng thưởng nào...";
+            if (isTable) {
+                const tbody = document.getElementById('historyTableBody');
+                if(tbody) tbody.innerHTML = "";
+            }
+            return;
+        }
+
+        // --- HÀM HỖ TRỢ ĐỊNH DẠNG GIỜ (Dùng chung cho cả Marquee và Table) ---
+        const formatTime = (timeStr) => {
+            if (!timeStr) return "--:--";
+            // 1. Thay khoảng trắng bằng T (để hỗ trợ Safari/iPhone)
+            // 2. Tạo đối tượng Date
+            const dateObj = new Date(timeStr.replace(" ", "T"));
+            
+            // 3. Nếu ngày lỗi (Invalid Date) -> trả về nguyên gốc để debug
+            if (isNaN(dateObj.getTime())) return timeStr;
+
+            // 4. Trả về giờ Việt Nam (VD: 14:30)
+            return dateObj.toLocaleTimeString('vi-VN', {hour: '2-digit', minute:'2-digit'});
+        };
+        
+        const formatDate = (timeStr) => {
+            if (!timeStr) return "";
+            const dateObj = new Date(timeStr.replace(" ", "T"));
+            if (isNaN(dateObj.getTime())) return "";
+            return dateObj.toLocaleDateString('vi-VN'); // VD: 03/02/2026
+        }
+
+        // 1. CẬP NHẬT MARQUEE (CHẠY CHỮ)
+        const text = data.map(i => {
+            return `🏆 [${formatTime(i.won_at)}] ${i.name}: ${i.prize}`;
+        }).join("  ---  ");
+        marquee.innerText = text;
+
+        // 2. CẬP NHẬT BẢNG TRONG MODAL
+        if (isTable) {
+            const tbody = document.getElementById('historyTableBody');
+            if (tbody) {
+                tbody.innerHTML = "";
+                data.forEach(i => {
+                    tbody.innerHTML += `<tr>
+                        <td style="color:#888; font-size:12px">🕒 ${formatTime(i.won_at)}</td>
+                        <td style="font-weight:bold">${i.name}</td>
+                        <td style="color:green; font-weight:bold">${i.prize}</td>
+                        <td style="color:#999; font-size:10px">${formatDate(i.won_at)}</td>
+                    </tr>`;
+                });
+            }
+        }
+
+    } catch (e) {
+        console.error("Lỗi load history:", e);
+    }
+}        
+        // Đóng modal khi click ra ngoài
+        window.onclick = function(event) {
+            if (event.target == document.getElementById('historyModal')) closeHistoryModal();
+        }
+
+    </script>
+</body>
+</html>

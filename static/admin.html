@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin - Duyệt Mã</title>
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; padding: 20px; background: #f0f2f5; }
+        .header-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;}
+        .btn-reset { background: #d9534f; color: white; border: none; padding: 10px 15px; border-radius: 5px; cursor: pointer; }
+        
+        .card { background: white; padding: 15px; border-radius: 8px; margin-bottom: 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); display: flex; justify-content: space-between; align-items: center; }
+        .name { font-weight: bold; font-size: 1.1em; }
+        .code-display { font-size: 1.5em; font-weight: bold; color: #d9534f; background: #ffe6e6; padding: 5px 15px; border: 2px dashed #d9534f; border-radius: 5px; }
+        
+        /* Style cho 2 khu vực */
+        .section-title { font-size: 18px; margin-top: 20px; padding-bottom: 10px; border-bottom: 2px solid #ccc; }
+        .approved-zone { border-left: 5px solid #28a745; background: #e8f5e9; } /* Xanh lá */
+        .pending-zone { border-left: 5px solid #ff9800; background: #fff3e0; }  /* Cam */
+    </style>
+</head>
+<body>
+    <div class="header-row">
+        <h1>👮 Quản Lý Khách Hàng</h1>
+        <div style="display: flex; gap: 10px;">
+            <button class="btn-reset" onclick="resetDB()">🗑️ Xóa Khách Hàng</button>
+            
+            <button class="btn-reset" style="background: #ff9800;" onclick="resetHistory()">📜 Xóa Lịch Sử</button>
+        </div>
+    </div>
+    <h3 class="section-title" style="color: #28a745;">🎫 MÃ CÓ HIỆU LỰC (Đọc cho khách)</h3>
+    <div id="approved-list"></div>
+
+    <h3 class="section-title" style="color: #ff9800;">⏳ ĐANG CHỜ DUYỆT</h3>
+    <div id="list"></div>
+
+    <script>
+        const API_URL = "http://localhost:8080/api";
+
+        async function loadData() {
+            // 1. Tải danh sách Đã Duyệt
+            let resApp = await fetch(API_URL + "/admin/approved");
+            let jsonApp = await resApp.json();
+            const appDiv = document.getElementById('approved-list');
+            appDiv.innerHTML = "";
+            
+            if (jsonApp.data && jsonApp.data.length > 0) {
+                jsonApp.data.forEach(user => {
+                    appDiv.innerHTML += `
+                        <div class="card approved-zone">
+                            <div>
+                                <div class="name">${user.name}</div>
+                                <small style="color:gray">Đã duyệt lúc ${new Date(user.created_at).toLocaleTimeString()}</small>
+                            </div>
+                            <span class="code-display">${user.code}</span>
+                        </div>`;
+                });
+            } else {
+                appDiv.innerHTML = "<p style='color:#999; font-style:italic'>Chưa có mã nào đang hoạt động...</p>";
+            }
+
+            // 2. Tải danh sách Đang Chờ
+            let resPen = await fetch(API_URL + "/admin/pending");
+            let jsonPen = await resPen.json();
+            const penDiv = document.getElementById('list');
+            penDiv.innerHTML = "";
+
+            if (jsonPen.data && jsonPen.data.length > 0) {
+                jsonPen.data.forEach(user => {
+                    penDiv.innerHTML += `
+                        <div class="card pending-zone">
+                            <div>
+                                <div class="name">${user.name}</div>
+                                <small>🕒 Chờ từ ${new Date(user.create_at || user.created_at).toLocaleTimeString()}</small>
+                            </div>
+                            <div style="display:flex; gap:10px">
+                                <button onclick="deleteUser('${user.code}')" style="background:#ddd; border:none; padding:8px; cursor:pointer; border-radius:4px">❌ Xóa</button>
+                                <button onclick="approve('${user.code}', '${user.name}')" style="background:#28a745; color:white; border:none; padding:8px 20px; border-radius:4px; font-weight:bold; cursor:pointer;">DUYỆT ✅</button>
+                            </div>
+                        </div>`;
+                });
+            } else {
+                penDiv.innerHTML = "<p style='color:#999; font-style:italic'>Không có ai đang chờ...</p>";
+            }
+        }
+
+        async function approve(code, name) {
+            await fetch(API_URL + "/admin/approve", {
+                method: 'POST', body: JSON.stringify({ code: code })
+            });
+            loadData(); // Tải lại ngay lập tức
+        }
+
+        async function deleteUser(code) {
+            if(!confirm("Xóa khách này?")) return;
+            await fetch(API_URL + "/admin/delete", {
+                method: 'POST', body: JSON.stringify({ code: code })
+            });
+            loadData();
+        }
+
+        async function resetDB() {
+            if(!confirm("⚠️ CẢNH BÁO: Bạn muốn xóa sạch danh sách khách hàng để bắt đầu mới?")) return;
+            await fetch(API_URL + "/admin/reset", { method: 'POST' });
+            loadData();
+        }
+        // ... (các hàm cũ giữ nguyên)
+
+        async function resetHistory() {
+            if(!confirm("⚠️ CẢNH BÁO: Bạn có chắc muốn xóa sạch LỊCH SỬ trúng thưởng?")) return;
+            
+            try {
+                let res = await fetch(API_URL + "/admin/reset-history", { method: 'POST' });
+                let data = await res.json();
+                
+                if (data.success) {
+                    alert(data.message);
+                    // Không cần reload trang vì lịch sử hiển thị bên trang index.html
+                } else {
+                    alert("Lỗi: " + data.error);
+                }
+            } catch (e) {
+                alert("Lỗi kết nối server");
+            }
+        }
+        // Tự động tải lại mỗi 2 giây
+        setInterval(loadData, 2000);
+        loadData();
+    </script>
+</body>
+</html>
