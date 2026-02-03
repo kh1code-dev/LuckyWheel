@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"log"
+	"net/http"
 	"os"
 
 	"luckywheel/internal/database"
@@ -36,9 +37,18 @@ func main() {
 	// --- CẤU HÌNH ROUTES (Chỉ khai báo 1 lần duy nhất ở đây) ---
 
 	// A. Public (Web & Lịch sử)
-	r.Static("/web", "./static")
-	r.GET("/api/history", handlers.GetHistory(dbHis))
+	// --- CẤU HÌNH ROUTES ---
 
+	r.Static("/web", "./static")
+
+	// 👇 THÊM ĐOẠN NÀY 👇
+	// Khi vào trang chủ (/) -> Tự động chuyển hướng sang /web/index.html
+	r.GET("/", func(c *gin.Context) {
+		c.Redirect(http.StatusMovedPermanently, "/web/index.html")
+	})
+	// 👆 HẾT ĐOẠN THÊM 👆
+
+	r.GET("/api/history", handlers.GetHistory(dbHis))
 	// B. Admin (Gom nhóm lại cho gọn)
 	adminGroup := r.Group("/api/admin")
 	{
